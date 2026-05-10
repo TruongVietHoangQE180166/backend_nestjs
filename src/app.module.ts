@@ -1,0 +1,34 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { CoreModule } from './core/core.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { UsersModule } from './module/users/users.module';
+import { ProfilesModule } from './module/profiles/profiles.module';
+import { RolesModule } from './module/roles/roles.module';
+import { AuthModule } from './module/auth/auth.module';
+import { MailModule } from './module/mail/mail.module';
+import { ScheduleModule } from '@nestjs/schedule';
+
+@Module({
+  imports: [
+    // 1. Cấu hình môi trường (Global)
+    ConfigModule.forRoot({ isGlobal: true }),
+
+    // 2. Hệ thống Schedule (Cron Job)
+    ScheduleModule.forRoot(),
+
+    // 3. Hạ tầng hệ thống (Logging, Security, Guards, Interceptors)
+    CoreModule,
+
+    // 3. Các Module nghiệp vụ (Business Logic)
+    PrismaModule,
+    UsersModule,
+    ProfilesModule,
+    RolesModule,
+    AuthModule,
+    MailModule,
+  ],
+  controllers: [],
+  providers: [],
+})
+export class AppModule {}
