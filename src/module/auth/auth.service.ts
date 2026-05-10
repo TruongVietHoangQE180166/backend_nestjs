@@ -21,19 +21,14 @@ import { ResendCodeDto } from './dto/request/resend-code.dto';
 import { ForgotPasswordDto } from './dto/request/forgot-password.dto';
 import { ChangePasswordDto } from './dto/request/change-password.dto';
 import { OAuth2Client } from 'google-auth-library';
-
-const SALT_ROUNDS = 10;
-const CODE_EXPIRE_MINUTES = 2;
-const CODE_EXPIRE_MS = CODE_EXPIRE_MINUTES * 60 * 1000; // 2 phút
-const SESSION_EXPIRE_MS = 30 * 60 * 1000; // 30 phút
-const TEMP_PASSWORD_EXPIRE_MINUTES = 5;
+import { APP_CONSTANTS } from '../../common/constants/app.constant';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly jwtService: JwtService,
-    @InjectQueue('mail_queue') private readonly mailQueue: Queue,
+    @InjectQueue(APP_CONSTANTS.QUEUE.MAIL_QUEUE) private readonly mailQueue: Queue,
     @Inject('GOOGLE_AUTH_CONFIG') private readonly googleAuth: { client: OAuth2Client; clientId: string },
   ) {}
 
@@ -54,11 +49,11 @@ export class AuthService {
       // Kịch bản 2: User tạo qua Google (chưa có passwordHash) đang đăng ký để tạo mật khẩu -> cho phép
     }
 
-    const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    const passwordHash = await bcrypt.hash(dto.password, APP_CONSTANTS.AUTH.SALT_ROUNDS);
     const code = Math.floor(10000000 + Math.random() * 90000000).toString();
     
-    const codeExpiresAt = new Date(Date.now() + CODE_EXPIRE_MS);
-    const sessionExpiresAt = new Date(Date.now() + SESSION_EXPIRE_MS);
+    const codeExpiresAt = new Date(Date.now() + APP_CONSTANTS.AUTH.CODE_EXPIRE_MS);
+    const sessionExpiresAt = new Date(Date.now() + APP_CONSTANTS.AUTH.SESSION_EXPIRE_MS);
 
     await this.authRepository.upsertVerification({
       email: dto.email,
@@ -69,14 +64,14 @@ export class AuthService {
       sessionExpiresAt,
     });
 
-    await this._enqueueEmail('send_verification_email', {
+    await this._enqueueEmail(APP_CONSTANTS.MAIL_JOB.SEND_VERIFICATION, {
       to: dto.email,
       subject: 'Xác thực đăng ký tài khoản Victeach',
       template: './verification',
       context: {
         username: dto.username,
         code: code,
-        expiresIn: CODE_EXPIRE_MINUTES,
+        expiresIn: APP_CONSTANTS.AUTH.CODE_EXPIRE_MINUTES,
       },
     });
 
@@ -99,7 +94,7 @@ export class AuthService {
     }
 
     const newCode = Math.floor(10000000 + Math.random() * 90000000).toString();
-    const newCodeExpiresAt = new Date(Date.now() + CODE_EXPIRE_MS);
+    const newCodeExpiresAt = new Date(Date.now() + APP_CONSTANTS.AUTH.CODE_EXPIRE_MS);
 
     await this.authRepository.upsertVerification({
       ...verification,
@@ -107,14 +102,14 @@ export class AuthService {
       codeExpiresAt: newCodeExpiresAt,
     });
 
-    await this._enqueueEmail('send_verification_email', {
+    await this._enqueueEmail(APP_CONSTANTS.MAIL_JOB.SEND_VERIFICATION, {
       to: verification.email,
       subject: 'Xác thực đăng ký tài khoản Victeach',
       template: './verification',
       context: {
         username: verification.username,
         code: newCode,
-        expiresIn: CODE_EXPIRE_MINUTES,
+        expiresIn: APP_CONSTANTS.AUTH.CODE_EXPIRE_MINUTES,
       },
     });
 
@@ -267,19 +262,19 @@ export class AuthService {
     }
 
     const tempPassword = Math.random().toString(36).slice(-10);
-    const passwordHash = await bcrypt.hash(tempPassword, SALT_ROUNDS);
-    const expiresAt = new Date(Date.now() + TEMP_PASSWORD_EXPIRE_MINUTES * 60 * 1000);
+    const passwordHash = await bcrypt.hash(tempPassword, APP_CONSTANTS.AUTH.SALT_ROUNDS);
+    const expiresAt = new Date(Date.now() + APP_CONSTANTS.AUTH.TEMP_PASSWORD_EXPIRE_MINUTES * 60 * 1000);
 
     await this.authRepository.updateUserPassword(user.id, passwordHash, expiresAt);
 
-    await this._enqueueEmail('send_forgot_password_email', {
+    await this._enqueueEmail(APP_CONSTANTS.MAIL_JOB.SEND_FORGOT_PASSWORD, {
       to: user.email,
       subject: 'Khôi phục mật khẩu Victeach',
       template: './forgot-password',
       context: {
         username: user.username,
         newPassword: tempPassword,
-        expiresIn: TEMP_PASSWORD_EXPIRE_MINUTES,
+        expiresIn: APP_CONSTANTS.AUTH.TEMP_PASSWORD_EXPIRE_MINUTES,
       },
     });
 
@@ -307,7 +302,7 @@ export class AuthService {
     }
 
     // 3. Mã hóa mật khẩu mới và cập nhật (xóa luôn thời hạn nếu có)
-    const newPasswordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
+    const newPasswordHash = await bcrypt.hash(dto.newPassword, APP_CONSTANTS.AUTH.SALT_ROUNDS);
     await this.authRepository.updateUserPassword(user.id, newPasswordHash, null);
 
     return {
@@ -318,8 +313,8 @@ export class AuthService {
   private async _enqueueEmail(jobName: string, data: any) {
     try {
       await this.mailQueue.add(jobName, data, {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 },
+        attempts: APP_CONSTANTS.BULLMQ.JOB_ATTEMPTS,
+        backoff: { type: 'exponential', delay: APP_CONSTANTS.BULLMQ.JOB_BACKOFF_DELAY },
         removeOnComplete: true,
       });
     } catch (error) {

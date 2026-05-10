@@ -1,0 +1,29 @@
+export const APP_CONSTANTS = {
+  AUTH: {
+    SALT_ROUNDS: 10,
+    CODE_EXPIRE_MINUTES: 2,
+    CODE_EXPIRE_MS: 2 * 60 * 1000,
+    SESSION_EXPIRE_MINUTES: 30,
+    SESSION_EXPIRE_MS: 30 * 60 * 1000,
+    TEMP_PASSWORD_EXPIRE_MINUTES: 5,
+  },
+  QUEUE: {
+    MAIL_QUEUE: 'mail_queue',
+  },
+  MAIL_JOB: {
+    SEND_VERIFICATION: 'send_verification_email',
+    SEND_FORGOT_PASSWORD: 'send_forgot_password_email',
+  },
+  THROTTLER: {
+    TTL: 60000,
+    LIMIT: 100,
+  },
+  BULLMQ: {
+    REMOVE_ON_FAIL_COUNT: 1000,
+    STALLED_INTERVAL: 3600000,
+    LOCK_DURATION: 300000,
+    DRAIN_DELAY: 60,
+    JOB_ATTEMPTS: 3,
+    JOB_BACKOFF_DELAY: 1000,
+  },
+};
