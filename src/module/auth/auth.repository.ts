@@ -30,7 +30,7 @@ export class AuthRepository {
     });
   }
 
-  async createUserWithProfile(userData: Prisma.UserUncheckedCreateInput) {
+  async createUserWithProfile(userData: Prisma.UserUncheckedCreateInput, profileData?: { fullName?: string; avatarUrl?: string }) {
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: userData,
@@ -42,6 +42,8 @@ export class AuthRepository {
       await tx.profile.create({
         data: {
           userId: user.id,
+          fullName: profileData?.fullName,
+          avatarUrl: profileData?.avatarUrl,
         },
       });
 
@@ -88,13 +90,22 @@ export class AuthRepository {
     });
   }
 
-  async updateUserPassword(userId: string, passwordHash: string | null, passwordExpiresAt: Date | null = null) {
+  async updateUserPassword(userId: string, passwordHash: string | null, passwordExpiresAt: Date | null = null, username?: string) {
     return this.prisma.user.update({
       where: { id: userId },
       data: { 
         passwordHash,
-        passwordExpiresAt
+        passwordExpiresAt,
+        ...(username && { username }),
       },
+    });
+  }
+
+  async updateUserGoogleId(userId: string, googleId: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { googleId },
+      include: { role: true },
     });
   }
 }

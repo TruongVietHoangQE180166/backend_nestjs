@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/request/register.dto';
 import { LoginDto } from './dto/request/login.dto';
+import { GoogleLoginDto } from './dto/request/google-login.dto';
 import { AuthResponseDto } from './dto/response/auth.response.dto';
 import { ApiSuccessResponse } from '../../common/decorators/api-success-response.decorator';
 import { ApiErrorResponses } from '../../common/decorators/api-error-responses.decorator';
@@ -66,6 +67,16 @@ export class AuthController {
   @ApiErrorResponses({ badRequest: true, resource: 'User', path: '/auth/login' })
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Public()
+  @Post('google-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Đăng nhập bằng Google' })
+  @ApiSuccessResponse(AuthResponseDto)
+  @ApiErrorResponses({ badRequest: true, resource: 'User', path: '/auth/google-login' })
+  googleLogin(@Body() googleLoginDto: GoogleLoginDto) {
+    return this.authService.googleLogin(googleLoginDto);
   }
 
   @ApiBearerAuth()
