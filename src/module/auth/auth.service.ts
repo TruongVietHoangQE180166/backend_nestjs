@@ -20,8 +20,10 @@ import { ForgotPasswordDto } from './dto/request/forgot-password.dto';
 import { ChangePasswordDto } from './dto/request/change-password.dto';
 
 const SALT_ROUNDS = 10;
-const CODE_EXPIRE_MS = 2 * 60 * 1000; // 2 phút
+const CODE_EXPIRE_MINUTES = 2;
+const CODE_EXPIRE_MS = CODE_EXPIRE_MINUTES * 60 * 1000; // 2 phút
 const SESSION_EXPIRE_MS = 30 * 60 * 1000; // 30 phút
+const TEMP_PASSWORD_EXPIRE_MINUTES = 5;
 
 @Injectable()
 export class AuthService {
@@ -62,6 +64,7 @@ export class AuthService {
       context: {
         username: dto.username,
         code: code,
+        expiresIn: CODE_EXPIRE_MINUTES,
       },
     });
 
@@ -99,6 +102,7 @@ export class AuthService {
       context: {
         username: verification.username,
         code: newCode,
+        expiresIn: CODE_EXPIRE_MINUTES,
       },
     });
 
@@ -155,6 +159,12 @@ export class AuthService {
       throw new UnauthorizedException('Thông tin đăng nhập không hợp lệ');
     }
 
+    if (user.passwordExpiresAt && new Date() > user.passwordExpiresAt) {
+      // Xóa mật khẩu đã hết hạn để đảm bảo bảo mật
+      await this.authRepository.updateUserPassword(user.id, null, null);
+      throw new UnauthorizedException('Mật khẩu tạm thời đã hết hạn (5 phút). Vui lòng thực hiện khôi phục mật khẩu lại.');
+    }
+
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isMatch) {
       throw new UnauthorizedException('Thông tin đăng nhập không hợp lệ');
@@ -176,8 +186,9 @@ export class AuthService {
 
     const tempPassword = Math.random().toString(36).slice(-10);
     const passwordHash = await bcrypt.hash(tempPassword, SALT_ROUNDS);
+    const expiresAt = new Date(Date.now() + TEMP_PASSWORD_EXPIRE_MINUTES * 60 * 1000);
 
-    await this.authRepository.updateUserPassword(user.id, passwordHash);
+    await this.authRepository.updateUserPassword(user.id, passwordHash, expiresAt);
 
     await this._enqueueEmail('send_forgot_password_email', {
       to: user.email,
@@ -186,6 +197,7 @@ export class AuthService {
       context: {
         username: user.username,
         newPassword: tempPassword,
+        expiresIn: TEMP_PASSWORD_EXPIRE_MINUTES,
       },
     });
 
@@ -212,9 +224,9 @@ export class AuthService {
       throw new BadRequestException('Mật khẩu cũ không chính xác.');
     }
 
-    // 3. Mã hóa mật khẩu mới và cập nhật
+    // 3. Mã hóa mật khẩu mới và cập nhật (xóa luôn thời hạn nếu có)
     const newPasswordHash = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
-    await this.authRepository.updateUserPassword(user.id, newPasswordHash);
+    await this.authRepository.updateUserPassword(user.id, newPasswordHash, null);
 
     return {
       message: 'Thay đổi mật khẩu thành công.',

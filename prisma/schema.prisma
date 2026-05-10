@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
    moduleFormat  = "cjs"
 }
@@ -43,6 +43,8 @@ model User {
   role          Role     @relation(fields: [roleId], references: [id])
 
   profile       Profile?
+
+  passwordExpiresAt DateTime?
 
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
