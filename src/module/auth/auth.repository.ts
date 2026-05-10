@@ -88,10 +88,13 @@ export class AuthRepository {
     });
   }
 
-  async updateUserPassword(userId: string, passwordHash: string) {
+  async updateUserPassword(userId: string, passwordHash: string | null, passwordExpiresAt: Date | null = null) {
     return this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash },
+      data: { 
+        passwordHash,
+        passwordExpiresAt
+      },
     });
   }
 }
