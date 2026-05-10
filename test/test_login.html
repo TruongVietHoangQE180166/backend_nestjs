@@ -1,0 +1,19 @@
+<html>
+
+<body>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <div id="g_id_onload" data-client_id="YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com"
+        data-callback="handleCredentialResponse">
+    </div>
+    <div class="g_id_signin" data-type="standard"></div>
+
+    <script>
+        function handleCredentialResponse(response) {
+            console.log("Đây là Token của bạn để dán vào Swagger:");
+            console.log(response.credential);
+            alert("Đã lấy được Token! Hãy F12 và copy trong Tab Console nhé.");
+        }
+    </script>
+</body>
+
+</html>

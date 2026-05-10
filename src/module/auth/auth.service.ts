@@ -4,11 +4,13 @@ import {
   NotFoundException,
   BadRequestException,
   UnauthorizedException,
+  Inject,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from './dto/request/register.dto';
 import { LoginDto } from './dto/request/login.dto';
+import { GoogleLoginDto } from './dto/request/google-login.dto';
 import { AuthRepository } from './auth.repository';
 import { plainToInstance } from 'class-transformer';
 import { AuthResponseDto } from './dto/response/auth.response.dto';
@@ -18,6 +20,7 @@ import { Queue } from 'bullmq';
 import { ResendCodeDto } from './dto/request/resend-code.dto';
 import { ForgotPasswordDto } from './dto/request/forgot-password.dto';
 import { ChangePasswordDto } from './dto/request/change-password.dto';
+import { OAuth2Client } from 'google-auth-library';
 
 const SALT_ROUNDS = 10;
 const CODE_EXPIRE_MINUTES = 2;
@@ -31,15 +34,24 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly jwtService: JwtService,
     @InjectQueue('mail_queue') private readonly mailQueue: Queue,
+    @Inject('GOOGLE_AUTH_CONFIG') private readonly googleAuth: { client: OAuth2Client; clientId: string },
   ) {}
 
   async register(dto: RegisterDto) {
     const existingEmail = await this.authRepository.findUserByIdentifier(dto.email);
     const existingUsername = await this.authRepository.findUserByIdentifier(dto.username);
 
-    if (existingEmail || existingUsername) {
-      const field = existingEmail?.email === dto.email ? 'Email' : 'Username';
-      throw new ConflictException(`${field} đã được sử dụng`);
+    // Kiểm tra username: nếu username đã tồn tại nhưng không thuộc về email này
+    if (existingUsername && existingUsername.email !== dto.email) {
+      throw new ConflictException(`Username đã được sử dụng`);
+    }
+
+    if (existingEmail) {
+      // Nếu user đã có mật khẩu (đã đăng ký qua form thường)
+      if (existingEmail.passwordHash) {
+        throw new ConflictException(`Email đã được sử dụng`);
+      }
+      // Kịch bản 2: User tạo qua Google (chưa có passwordHash) đang đăng ký để tạo mật khẩu -> cho phép
     }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
@@ -137,17 +149,27 @@ export class AuthService {
       throw new NotFoundException('Role USER chưa được khởi tạo trong hệ thống');
     }
 
-    const user = await this.authRepository.createUserWithProfile({
-      email: verification.email,
-      username: verification.username,
-      passwordHash: verification.passwordHash,
-      roleId: defaultRole.id,
-    });
+    let user;
+    const existingUser = await this.authRepository.findUserByIdentifier(verification.email);
+
+    if (existingUser && !existingUser.passwordHash) {
+      // Kịch bản 2: Tài khoản Google đang tạo mật khẩu qua luồng đăng ký (cập nhật luôn username mới nếu có)
+      user = await this.authRepository.updateUserPassword(existingUser.id, verification.passwordHash, null, verification.username);
+    } else if (!existingUser) {
+      user = await this.authRepository.createUserWithProfile({
+        email: verification.email,
+        username: verification.username,
+        passwordHash: verification.passwordHash,
+        roleId: defaultRole.id,
+      });
+    } else {
+      throw new ConflictException('Tài khoản đã được đăng ký.');
+    }
 
     await this.authRepository.deleteVerification(dto.email);
 
     return {
-      message: 'Xác thực tài khoản thành công. Bây giờ bạn có thể đăng nhập.',
+      message: 'Xác thực tài khoản thành công. Bây giờ bạn có thể đăng nhập bằng email hoặc Google.',
       email: user.email,
     };
   }
@@ -168,6 +190,66 @@ export class AuthService {
     const isMatch = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isMatch) {
       throw new UnauthorizedException('Thông tin đăng nhập không hợp lệ');
+    }
+
+    const accessToken = this._signToken(user.id, user.email, user.roleId, user.role.name);
+
+    return plainToInstance(AuthResponseDto, {
+      accessToken,
+      user,
+    });
+  }
+
+  async googleLogin(dto: GoogleLoginDto) {
+    let payload;
+    try {
+      const ticket = await this.googleAuth.client.verifyIdToken({
+        idToken: dto.token,
+        audience: this.googleAuth.clientId,
+      });
+      payload = ticket.getPayload();
+    } catch (error) {
+      throw new UnauthorizedException('Token Google không hợp lệ hoặc đã hết hạn');
+    }
+
+    if (!payload || !payload.email || !payload.email_verified) {
+      throw new BadRequestException('Không thể lấy thông tin email từ Google hoặc email chưa được xác thực');
+    }
+
+    const { email, sub: googleId, given_name, family_name, picture } = payload;
+
+    let user = await this.authRepository.findUserByIdentifier(email);
+
+    if (user) {
+      // Kịch bản 1: Email đã tồn tại
+      if (!user.googleId) {
+        // Chưa liên kết với Google -> Cập nhật để liên kết
+        user = await this.authRepository.updateUserGoogleId(user.id, googleId);
+      }
+    } else {
+      // Kịch bản 1: Chưa tồn tại tài khoản -> Tạo mới với thông tin từ Google
+      const defaultRole = await this.authRepository.findRoleByName('USER');
+      if (!defaultRole) {
+        throw new NotFoundException('Role USER chưa được khởi tạo trong hệ thống');
+      }
+
+      // Tạo username ngẫu nhiên từ email
+      const baseUsername = email.split('@')[0];
+      const randomString = Math.random().toString(36).substring(2, 6);
+      const username = `${baseUsername}_${randomString}`;
+
+      user = await this.authRepository.createUserWithProfile(
+        {
+          email: email,
+          username: username,
+          googleId: googleId,
+          roleId: defaultRole.id,
+        },
+        {
+          fullName: `${family_name || ''} ${given_name || ''}`.trim(),
+          avatarUrl: picture,
+        }
+      );
     }
 
     const accessToken = this._signToken(user.id, user.email, user.roleId, user.role.name);
