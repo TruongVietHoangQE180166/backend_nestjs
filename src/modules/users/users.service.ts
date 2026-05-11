@@ -54,6 +54,7 @@ export class UsersService {
   }
 
   async remove(id: string) {
-    return this.usersRepository.delete({ id });
+    const user = await this.usersRepository.delete({ id });
+    return plainToInstance(UserResponseDto, user);
   }
 }

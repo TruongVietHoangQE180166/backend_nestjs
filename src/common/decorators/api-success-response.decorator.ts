@@ -16,6 +16,7 @@ import { ResponseDto } from '../dto/response.dto';
 export const ApiSuccessResponse = <DataDto extends Type<unknown>>(
   dataDto: DataDto,
   isArray: boolean = false,
+  description: string = 'Request successful',
 ) => {
   const entityExample = (dataDto as any).example ?? {};
 
@@ -35,7 +36,7 @@ export const ApiSuccessResponse = <DataDto extends Type<unknown>>(
   return applyDecorators(
     ApiExtraModels(ResponseDto, dataDto),
     ApiOkResponse({
-      description: 'Request successful',
+      description: description,
       schema: {
         allOf: [
           { $ref: getSchemaPath(ResponseDto) },

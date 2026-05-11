@@ -5,6 +5,7 @@ import { CreateRoleDto } from './dto/request/create-role.dto';
 import { UpdateRoleDto } from './dto/request/update-role.dto';
 import { RoleResponseDto } from './dto/response/role.response.dto';
 import { ApiSuccessResponse } from '../../common/decorators/api-success-response.decorator';
+import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-response.decorator';
 import { ApiErrorResponses } from '../../common/decorators/api-error-responses.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { RequiredPermissions } from '../../common/decorators/permissions.decorator';
@@ -20,7 +21,7 @@ export class RolesController {
 
   @Post()
   @ApiOperation({ summary: 'Create a role' })
-  @ApiSuccessResponse(RoleResponseDto)
+  @ApiSuccessResponse(RoleResponseDto, false, 'Tạo vai trò thành công')
   @ApiErrorResponses({ badRequest: true, resource: 'Role', path: '/roles' })
   create(@Body() createRoleDto: CreateRoleDto) {
     return this.rolesService.create(createRoleDto);
@@ -28,7 +29,7 @@ export class RolesController {
 
   @Get()
   @ApiOperation({ summary: 'Get all roles' })
-  @ApiSuccessResponse(RoleResponseDto, true)
+  @ApiPaginatedResponse(RoleResponseDto, 'Lấy danh sách vai trò thành công')
   @ApiErrorResponses({ resource: 'Role', path: '/roles' })
   findAll(@Query() paginationDto: PaginationDto) {
     return this.rolesService.findAll(paginationDto);
@@ -36,7 +37,7 @@ export class RolesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a role by id' })
-  @ApiSuccessResponse(RoleResponseDto)
+  @ApiSuccessResponse(RoleResponseDto, false, 'Lấy chi tiết vai trò thành công')
   @ApiErrorResponses({ notFound: true, resource: 'Role', path: '/roles/:id' })
   findOne(@Param('id') id: string) {
     return this.rolesService.findOne(id);
@@ -44,7 +45,7 @@ export class RolesController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a role' })
-  @ApiSuccessResponse(RoleResponseDto)
+  @ApiSuccessResponse(RoleResponseDto, false, 'Cập nhật vai trò thành công')
   @ApiErrorResponses({ badRequest: true, notFound: true, resource: 'Role', path: '/roles/:id' })
   update(@Param('id') id: string, @Body() updateRoleDto: UpdateRoleDto) {
     return this.rolesService.update(id, updateRoleDto);
@@ -52,7 +53,7 @@ export class RolesController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a role' })
-  @ApiSuccessResponse(RoleResponseDto)
+  @ApiSuccessResponse(RoleResponseDto, false, 'Xóa vai trò thành công')
   @ApiErrorResponses({ notFound: true, resource: 'Role', path: '/roles/:id' })
   remove(@Param('id') id: string) {
     return this.rolesService.remove(id);

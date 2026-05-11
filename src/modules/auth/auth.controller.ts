@@ -23,7 +23,7 @@ export class AuthController {
   @Public()
   @Post('register')
   @ApiOperation({ summary: 'Đăng ký tài khoản (Gửi mã xác thực qua email)' })
-  @ApiSuccessResponse(Object)
+  @ApiSuccessResponse(Object, false, 'Yêu cầu đăng ký đã được gửi, vui lòng kiểm tra email')
   @ApiErrorResponses({ badRequest: true, resource: 'User', path: '/auth/register' })
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
@@ -33,7 +33,7 @@ export class AuthController {
   @Post('resend-code')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Gửi lại mã xác thực' })
-  @ApiSuccessResponse(Object)
+  @ApiSuccessResponse(Object, false, 'Mã xác thực mới đã được gửi')
   @ApiErrorResponses({ badRequest: true, notFound: true, resource: 'User', path: '/auth/resend-code' })
   resendCode(@Body() resendDto: ResendCodeDto) {
     return this.authService.resendCode(resendDto);
@@ -43,7 +43,7 @@ export class AuthController {
   @Post('verify-register')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Xác thực mã code 8 chữ số để tạo tài khoản' })
-  @ApiSuccessResponse(Object)
+  @ApiSuccessResponse(Object, false, 'Xác thực đăng ký thành công')
   @ApiErrorResponses({ badRequest: true, notFound: true, resource: 'User', path: '/auth/verify-register' })
   verifyRegister(@Body() verifyDto: VerifyRegisterDto) {
     return this.authService.verifyRegister(verifyDto);
@@ -53,7 +53,7 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Quên mật khẩu (Gửi mật khẩu mới qua email)' })
-  @ApiSuccessResponse(Object)
+  @ApiSuccessResponse(Object, false, 'Mật khẩu mới đã được gửi tới email của bạn')
   @ApiErrorResponses({ badRequest: true, notFound: true, resource: 'User', path: '/auth/forgot-password' })
   forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     return this.authService.forgotPassword(forgotPasswordDto);
@@ -63,7 +63,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Đăng nhập' })
-  @ApiSuccessResponse(AuthResponseDto)
+  @ApiSuccessResponse(AuthResponseDto, false, 'Đăng nhập thành công')
   @ApiErrorResponses({ badRequest: true, resource: 'User', path: '/auth/login' })
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
@@ -73,7 +73,7 @@ export class AuthController {
   @Post('google-login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Đăng nhập bằng Google' })
-  @ApiSuccessResponse(AuthResponseDto)
+  @ApiSuccessResponse(AuthResponseDto, false, 'Đăng nhập bằng Google thành công')
   @ApiErrorResponses({ badRequest: true, resource: 'User', path: '/auth/google-login' })
   googleLogin(@Body() googleLoginDto: GoogleLoginDto) {
     return this.authService.googleLogin(googleLoginDto);
@@ -83,7 +83,7 @@ export class AuthController {
   @Patch('change-password')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Thay đổi mật khẩu (Yêu cầu đăng nhập)' })
-  @ApiSuccessResponse(Object)
+  @ApiSuccessResponse(Object, false, 'Thay đổi mật khẩu thành công')
   @ApiErrorResponses({ badRequest: true, unauthorized: true, resource: 'User', path: '/auth/change-password' })
   changePassword(
     @GetCurrentUserId() userId: string,
