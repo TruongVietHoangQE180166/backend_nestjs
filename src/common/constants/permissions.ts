@@ -19,6 +19,12 @@ export enum Permission {
   UPDATE_CATEGORY = 'update_category',
   DELETE_CATEGORY = 'delete_category',
   VIEW_CATEGORIES = 'view_categories',
+
+  // Tag Management
+  CREATE_TAG = 'create_tag',
+  UPDATE_TAG = 'update_tag',
+  DELETE_TAG = 'delete_tag',
+  VIEW_TAGS = 'view_tags',
 }
 
 // Cấu hình các quyền cho từng Role
@@ -30,11 +36,13 @@ export const RolePermissions: Record<RoleName, Permission[]> = {
     Permission.VIEW_PROFILES,
     Permission.UPDATE_PROFILE,
     Permission.VIEW_CATEGORIES,
+    Permission.VIEW_TAGS,
   ],
   
   [RoleName.USER]: [
     Permission.VIEW_PROFILES,
     Permission.UPDATE_PROFILE,
     Permission.VIEW_CATEGORIES,
+    Permission.VIEW_TAGS,
   ],
 };
