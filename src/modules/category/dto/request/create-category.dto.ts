@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateCategoryDto {
   @ApiProperty({ example: 'Tiên Hiệp', description: 'Tên thể loại' })
@@ -15,4 +16,12 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsString()
   description?: string;
+}
+
+export class CreateManyCategoriesDto {
+  @ApiProperty({ type: [CreateCategoryDto], description: 'Danh sách các thể loại cần tạo' })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CreateCategoryDto)
+  categories: CreateCategoryDto[];
 }

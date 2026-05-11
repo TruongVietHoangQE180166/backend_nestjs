@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { MailModule } from './modules/mail/mail.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CategoryModule } from './modules/category/category.module';
+import { TagsModule } from './modules/tags/tags.module';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { CategoryModule } from './modules/category/category.module';
     // 3. Hạ tầng hệ thống (Logging, Security, Guards, Interceptors)
     CoreModule,
 
-    // 3. Các Module nghiệp vụ (Business Logic)
+    // 4. Các Module nghiệp vụ (Business Logic)
     PrismaModule,
     UsersModule,
     ProfilesModule,
@@ -29,6 +30,7 @@ import { CategoryModule } from './modules/category/category.module';
     AuthModule,
     MailModule,
     CategoryModule,
+    TagsModule,
   ],
   controllers: [],
   providers: [],

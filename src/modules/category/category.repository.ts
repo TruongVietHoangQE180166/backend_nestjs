@@ -12,6 +12,13 @@ export class CategoryRepository {
     });
   }
 
+  async createMany(data: Prisma.CategoryCreateManyInput[]) {
+    return this.prisma.category.createMany({
+      data,
+      skipDuplicates: true,
+    });
+  }
+
   async findAll(params: {
     skip?: number;
     take?: number;
