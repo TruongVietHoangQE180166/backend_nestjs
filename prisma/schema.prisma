@@ -1,78 +1,308 @@
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
-   moduleFormat  = "cjs"
+  moduleFormat  = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
 }
 
+// ==========================================
+// ENUMS (Định nghĩa các tập giá trị cố định)
+// ==========================================
+
 enum RoleName {
-  ADMIN
-  USER
-  TEACHER
+  ADMIN    // Quản trị viên hệ thống
+  USER     // Người dùng/Độc giả thông thường
+  TEACHER  // Tác giả hoặc người hướng dẫn
 }
+
+enum StoryType {
+  TRANSLATED // Truyện dịch
+  CONVERTED  // Truyện convert (trung-việt nhanh)
+  ORIGINAL   // Truyện tự sáng tác
+}
+
+enum StoryStatus {
+  ONGOING    // Đang ra chương mới
+  COMPLETED  // Đã hoàn thành
+  PAUSED     // Tạm dừng cập nhật
+}
+
+enum StoryApprovalStatus {
+  PENDING  // Chờ Admin duyệt để hiển thị
+  APPROVED // Đã duyệt
+  REJECTED // Bị từ chối (có thể do vi phạm)
+}
+
+enum TagType {
+  CHARACTER // Phân loại theo tính cách nhân vật (v dụ: Lạnh lùng, Bá đạo)
+  WORLD     // Phân loại theo bối cảnh (v dụ: Tu tiên, Đô thị)
+  CONTENT   // Các nội dung/tình tiết đặc biệt khác
+}
+
+// ==========================================
+// USER & AUTHENTICATION (Người dùng & Bảo mật)
+// ==========================================
 
 model Role {
   id          String   @id @default(uuid())
+  name        RoleName @unique          // Tên vai trò (ADMIN, USER, TEACHER)
+  description String?                   // Mô tả quyền hạn của vai trò
+  users       User[]                    // Liên kết tới danh sách người dùng thuộc quyền này
 
-  name        RoleName @unique
+  createdAt   DateTime @default(now())  // Thời điểm tạo vai trò
+  updatedAt   DateTime @updatedAt       // Thời điểm cập nhật cuối cùng
+}
 
-  description String?
+model User {
+  id                String   @id @default(uuid())
+  email             String   @unique          // Email đăng ký (duy nhất)
+  username          String   @unique          // Tên đăng nhập (duy nhất)
+  passwordHash      String?                   // Mật khẩu đã mã hóa (null nếu dùng Google Auth)
+  googleId          String?  @unique          // ID định danh từ Google
+  isActive          Boolean  @default(true)   // Trạng thái tài khoản (b bị khóa hay không)
+  passwordExpiresAt DateTime?                 // Thời điểm mật khẩu tạm thời hết hạn
+  
+  roleId            String                    // ID vai trò
+  role              Role     @relation(fields: [roleId], references: [id])
 
-  users       User[]
+  profile           Profile?                  // Thông tin cá nhân chi tiết
+  wallet            Wallet?                   // Ví lưu trữ tiền tệ/phiếu của người dùng
+
+  // Liên kết ngược (Relations)
+  uploadedStories   Story[]          @relation("UserUploadedStories") // Truyện do người này đăng
+  reviews           Review[]         @relation("UserReviews")         // Các đánh giá truyện của người này
+  comments          Comment[]        @relation("UserComments")        // Các bình luận của người này
+  followedStories   StoryFollow[]    @relation("UserFollows")         // Danh sách truyện đang theo dõi
+  readingHistory    ReadingHistory[] @relation("UserReadingHistory")  // Lịch sử chương đã đọc
+  candyDonations    CandyDonation[]  @relation("UserDonations")       // Nhật ký tặng kẹo
+  nominations       NominationHistory[] @relation("UserNominations")  // Nhật ký đề cử truyện
+
+  createdAt         DateTime @default(now())  // Thời điểm đăng ký tài khoản
+  updatedAt         DateTime @updatedAt       // Thời điểm cập nhật thông tin tài khoản
+}
+
+model Profile {
+  id        String  @id @default(uuid())
+  userId    String  @unique                    // ID người dùng (quan hệ 1-1)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  fullName  String?                            // Tên thật hoặc hiển thị
+  avatarUrl String?                            // Đường dẫn ảnh đại diện
+  bio       String? @db.Text                   // Giới thiệu bản thân ngắn gọn
+
+  createdAt DateTime @default(now())           // Thời điểm tạo hồ sơ
+  updatedAt DateTime @updatedAt                // Thời điểm cập nhật hồ sơ (V dụ: đổi avatar)
+}
+
+model Wallet {
+  id                String @id @default(uuid())
+  userId            String @unique             // ID người dùng (quan hệ 1-1)
+  user              User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  balanceCandy      Int    @default(0)         // Số dư kẹo hiện tại
+  balanceNomination Int    @default(10)        // Số phiếu đề cử còn lại (Reset theo tháng)
+
+  createdAt         DateTime @default(now())   // Thời điểm tạo ví
+  updatedAt         DateTime @updatedAt        // Thời điểm cập nhật số dư
+}
+
+model RegisterVerification {
+  id               String   @id @default(uuid())
+  email            String   @unique            // Email đang chờ xác thực
+  username         String   @unique            // Username đang chờ xác thực
+  passwordHash     String                      // Mật khẩu tạm thời
+  code             String                      // Mã OTP hoặc token xác thực
+  codeExpiresAt    DateTime                    // Thời điểm mã xác thực hết hạn
+  sessionExpiresAt DateTime                    // Thời điểm phiên đăng ký hết hạn
+
+  createdAt        DateTime @default(now())    // Thời điểm yêu cầu đăng ký
+}
+
+// ==========================================
+// STORY & CONTENT (Nội dung Truyện & Chương)
+// ==========================================
+
+model Story {
+  id              String              @id @default(uuid())
+  title           String                                    // Tiêu đề truyện
+  slug            String              @unique               // Đường dẫn thân thiện (V dụ: toan-phong)
+  description     String              @db.Text              // Tóm tắt nội dung truyện
+  coverUrl        String?                                   // Ảnh bìa truyện
+  type            StoryType                                 // Phân loại (Dịch/Convert/Sáng tác)
+  status          StoryStatus         @default(ONGOING)     // Trạng thái (Đang ra/Hoàn thành)
+  approvalStatus  StoryApprovalStatus @default(PENDING)     // Duyệt bởi Admin
+  authorName      String                                    // Tên tác giả (có thể khác tên uploader)
+  
+  uploaderId      String                                    // ID người đăng truyện
+  uploader        User                @relation("UserUploadedStories", fields: [uploaderId], references: [id])
+
+  // Thống kê (Lưu sẵn để truy vấn nhanh - Denormalization)
+  viewCount       Int    @default(0)   // Tổng lượt xem
+  candyCount      Int    @default(0)   // Tổng kẹo đã nhận được
+  nominationCount Int    @default(0)   // Tổng phiếu đề cử nhận được
+  followCount     Int    @default(0)   // Tổng số người theo dõi
+  ratingScore     Float  @default(0)   // Điểm đánh giá trung bình
+  ratingCount     Int    @default(0)   // Tổng số lượt đánh giá
+  chapterCount    Int    @default(0)   // Tổng số chương hiện có
+
+  // Liên kết ngược (Relations)
+  categories      Category[]           // Thể loại (N-N)
+  tags            Tag[]                // Nhãn (N-N)
+  chapters        Chapter[]            // Danh sách chương
+  reviews         Review[]             // Danh sách đánh giá
+  comments        Comment[]            // Danh sách bình luận
+  follows         StoryFollow[]        // Danh sách người theo dõi truyện này
+  readingHistory  ReadingHistory[]     // Nhật ký đọc của các user
+  candyDonations  CandyDonation[]     // Lịch sử kẹo được nhận
+  nominations     NominationHistory[]  // Lịch sử phiếu đề cử được nhận
+
+  createdAt       DateTime @default(now()) // Thời điểm đăng truyện lên hệ thống
+  updatedAt       DateTime @updatedAt      // Thời điểm có cập nhật mới (V dụ: thêm chương)
+
+  @@index([status, approvalStatus])        // Index giúp lọc truyện đã duyệt nhanh hơn
+}
+
+model Chapter {
+  id           String   @id @default(uuid())
+  storyId      String                               // ID truyện thuộc về
+  story        Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  
+  chapterIndex Int                                  // Số thứ tự chương (Chương 1, 2, 3...)
+  title        String                               // Tiêu đề chương
+  content      String   @db.Text                    // Nội dung chữ của chương
+  viewCount    Int      @default(0)                 // Lượt xem riêng của chương này
+
+  comments       Comment[]                          // Bình luận trong chương này
+  readingHistory ReadingHistory[]                   // Dùng để đánh dấu user đang đọc đến chương này
+
+  createdAt    DateTime @default(now())             // Thời điểm đăng chương
+  updatedAt    DateTime @updatedAt                  // Thời điểm sửa nội dung chương
+
+  @@unique([storyId, chapterIndex])                 // Một truyện không thể có 2 chương trùng số thứ tự
+}
+
+// ==========================================
+// TAXONOMY (Phân loại: Thể loại & Nhãn)
+// ==========================================
+
+model Category {
+  id          String  @id @default(uuid())
+  name        String  @unique                      // Tên thể loại (V dụ: Tiên Hiệp)
+  description String?                              // Mô tả thể loại
+  stories     Story[]                              // Các truyện thuộc thể loại này
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
-model User {
-  id            String   @id @default(uuid())
+model Tag {
+  id        String   @id @default(uuid())
+  name      String                                 // Tên nhãn (V dụ: Hệ thống)
+  type      TagType                                // Loại nhãn (Nhân vật/Bối cảnh)
+  stories   Story[]                                // Các truyện có gắn nhãn này
 
-  email         String   @unique
-  username      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  passwordHash  String?
-
-  googleId      String? @unique
-
-  isActive      Boolean  @default(true)
-
-  roleId        String
-  role          Role     @relation(fields: [roleId], references: [id])
-
-  profile       Profile?
-
-  passwordExpiresAt DateTime?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  @@unique([name, type])                           // Tránh trùng tên nhãn trong cùng một nhóm loại
 }
 
-model Profile {
-  id            String   @id @default(uuid())
+// ==========================================
+// INTERACTION & ECONOMY (Tương tác & Kinh tế)
+// ==========================================
 
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id])
+model Review {
+  id        String   @id @default(uuid())
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation("UserReviews", fields: [userId], references: [id])
+  
+  score     Int                                    // Số sao đánh giá (1-5)
+  content   String   @db.Text                      // Nội dung nhận xét chi tiết
 
-  fullName      String?
-  avatarUrl     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  bio           String?
-
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  @@unique([storyId, userId])                      // Mỗi user chỉ đánh giá 1 truyện 1 lần
 }
-model RegisterVerification {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  username      String   @unique
-  passwordHash  String
-  code          String
-  codeExpiresAt DateTime
-  sessionExpiresAt DateTime
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model Comment {
+  id        String   @id @default(uuid())
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  chapterId String?                                // Có thể comment ở truyện hoặc ở từng chương
+  chapter   Chapter? @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation("UserComments", fields: [userId], references: [id])
+  
+  content   String   @db.Text                      // Nội dung bình luận
+
+  // Cấu trúc bình luận lồng nhau (Cha-Con)
+  parentId  String?
+  parent    Comment?  @relation("CommentReplies", fields: [parentId], references: [id])
+  replies   Comment[] @relation("CommentReplies")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model StoryFollow {
+  userId    String
+  user      User     @relation("UserFollows", fields: [userId], references: [id], onDelete: Cascade)
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())               // Thời điểm bắt đầu theo dõi
+  // Không cần updatedAt vì follow thường là trạng thái tức thời (có hoặc không)
+
+  @@id([userId, storyId])                          // Khóa chính phức hợp
+}
+
+model ReadingHistory {
+  userId    String
+  user      User     @relation("UserReadingHistory", fields: [userId], references: [id], onDelete: Cascade)
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  chapterId String                                 // ID chương cuối cùng đang đọc
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())               // Lần đầu đọc truyện này
+  updatedAt DateTime @updatedAt                    // Cập nhật mỗi khi sang chương mới (Dùng để "Đọc tiếp")
+
+  @@id([userId, storyId])                          // Mỗi user chỉ có 1 dòng tiến độ cho 1 truyện
+}
+
+model CandyDonation {
+  id        String   @id @default(uuid())
+  userId    String                                 // Người tặng kẹo
+  user      User     @relation("UserDonations", fields: [userId], references: [id])
+  storyId   String                                 // Truyện được tặng kẹo
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  
+  amount    Int                                    // Số kẹo đã tặng
+  message   String?  @db.VarChar(255)              // Lời nhắn gửi kèm
+
+  createdAt DateTime @default(now())               // Thời điểm tặng (Không có updatedAt vì là log)
+
+  @@index([storyId])
+  @@index([userId])
+}
+
+model NominationHistory {
+  id        String   @id @default(uuid())
+  userId    String                                 // Người đề cử
+  user      User     @relation("UserNominations", fields: [userId], references: [id])
+  storyId   String                                 // Truyện được đề cử
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  
+  amount    Int      @default(1)                   // Số phiếu sử dụng
+
+  createdAt DateTime @default(now())               // Thời điểm đề cử (Dùng để lọc BXH tháng/tuần)
+
+  @@index([storyId])
+  @@index([userId])
 }

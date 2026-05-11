@@ -47,6 +47,14 @@ export class AuthRepository {
         },
       });
 
+      await tx.wallet.create({
+        data: {
+          userId: user.id,
+          balanceCandy: 0,
+          balanceNomination: 10, // Số phiếu mặc định mỗi tháng
+        },
+      });
+
       return user;
     });
   }

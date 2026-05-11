@@ -7,8 +7,26 @@ export class UsersRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(data: Prisma.UserUncheckedCreateInput) {
-    return this.prisma.user.create({
-      data,
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data,
+      });
+
+      await tx.profile.create({
+        data: {
+          userId: user.id,
+        },
+      });
+
+      await tx.wallet.create({
+        data: {
+          userId: user.id,
+          balanceCandy: 0,
+          balanceNomination: 10,
+        },
+      });
+
+      return user;
     });
   }
 

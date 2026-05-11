@@ -51,6 +51,7 @@ export class RolesService {
   }
 
   async remove(id: string) {
-    return this.rolesRepository.delete({ id });
+    const role = await this.rolesRepository.delete({ id });
+    return plainToInstance(RoleResponseDto, role);
   }
 }

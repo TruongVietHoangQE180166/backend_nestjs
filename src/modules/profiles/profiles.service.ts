@@ -52,7 +52,8 @@ export class ProfilesService {
   }
 
   async remove(id: string) {
-    return this.profilesRepository.delete({ id });
+    const profile = await this.profilesRepository.delete({ id });
+    return plainToInstance(ProfileResponseDto, profile);
   }
 
   async findByUserId(userId: string) {

@@ -5,6 +5,7 @@ import { CreateProfileDto } from './dto/request/create-profile.dto';
 import { UpdateProfileDto } from './dto/request/update-profile.dto';
 import { ProfileResponseDto } from './dto/response/profile.response.dto';
 import { ApiSuccessResponse } from '../../common/decorators/api-success-response.decorator';
+import { ApiPaginatedResponse } from '../../common/decorators/api-paginated-response.decorator';
 import { ApiErrorResponses } from '../../common/decorators/api-error-responses.decorator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 
@@ -16,7 +17,7 @@ export class ProfilesController {
 
   @Post()
   @ApiOperation({ summary: 'Create a profile' })
-  @ApiSuccessResponse(ProfileResponseDto)
+  @ApiSuccessResponse(ProfileResponseDto, false, 'Tạo hồ sơ thành công')
   @ApiErrorResponses({ badRequest: true, resource: 'Profile', path: '/profiles' })
   create(@Body() createProfileDto: CreateProfileDto) {
     return this.profilesService.create(createProfileDto);
@@ -24,7 +25,7 @@ export class ProfilesController {
 
   @Get()
   @ApiOperation({ summary: 'Get all profiles' })
-  @ApiSuccessResponse(ProfileResponseDto, true)
+  @ApiPaginatedResponse(ProfileResponseDto, 'Lấy danh sách hồ sơ thành công')
   @ApiErrorResponses({ resource: 'Profile', path: '/profiles' })
   findAll(@Query() paginationDto: PaginationDto) {
     return this.profilesService.findAll(paginationDto);
@@ -32,7 +33,7 @@ export class ProfilesController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a profile by id' })
-  @ApiSuccessResponse(ProfileResponseDto)
+  @ApiSuccessResponse(ProfileResponseDto, false, 'Lấy chi tiết hồ sơ thành công')
   @ApiErrorResponses({ notFound: true, resource: 'Profile', path: '/profiles/:id' })
   findOne(@Param('id') id: string) {
     return this.profilesService.findOne(id);
@@ -40,7 +41,7 @@ export class ProfilesController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a profile' })
-  @ApiSuccessResponse(ProfileResponseDto)
+  @ApiSuccessResponse(ProfileResponseDto, false, 'Cập nhật hồ sơ thành công')
   @ApiErrorResponses({ badRequest: true, notFound: true, resource: 'Profile', path: '/profiles/:id' })
   update(@Param('id') id: string, @Body() updateProfileDto: UpdateProfileDto) {
     return this.profilesService.update(id, updateProfileDto);
@@ -48,7 +49,7 @@ export class ProfilesController {
 
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a profile' })
-  @ApiSuccessResponse(ProfileResponseDto)
+  @ApiSuccessResponse(ProfileResponseDto, false, 'Xóa hồ sơ thành công')
   @ApiErrorResponses({ notFound: true, resource: 'Profile', path: '/profiles/:id' })
   remove(@Param('id') id: string) {
     return this.profilesService.remove(id);

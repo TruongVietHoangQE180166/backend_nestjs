@@ -2,11 +2,12 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { MailerService } from '@nestjs-modules/mailer';
 import { Logger } from '@nestjs/common';
+import { APP_CONSTANTS } from '../../common/constants/app.constant';
 
-@Processor('mail_queue', {
-  stalledInterval: 3600000,
-  lockDuration: 300000,
-  drainDelay: 60, // Đợi 60s khi hàng đợi trống mới kiểm tra lại
+@Processor(APP_CONSTANTS.QUEUE.MAIL_QUEUE, {
+  stalledInterval: APP_CONSTANTS.BULLMQ.STALLED_INTERVAL,
+  lockDuration: APP_CONSTANTS.BULLMQ.LOCK_DURATION,
+  drainDelay: APP_CONSTANTS.BULLMQ.DRAIN_DELAY, // Đợi 60s khi hàng đợi trống mới kiểm tra lại
 })
 export class MailProcessor extends WorkerHost {
   private readonly logger = new Logger(MailProcessor.name);

@@ -16,6 +16,7 @@ import { PermissionsGuard } from '../guards/permissions.guard';
 import { LoggingInterceptor } from '../common/interceptors/logging.interceptor';
 import { TransformInterceptor } from '../common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from '../common/filters/http-exception.filter';
+import { APP_CONSTANTS } from '../common/constants/app.constant';
 
 @Global()
 @Module({
@@ -34,10 +35,10 @@ import { HttpExceptionFilter } from '../common/filters/http-exception.filter';
     }),
     // Đăng ký hàng đợi mail với cấu hình tiết kiệm command
     BullModule.registerQueue({
-      name: 'mail_queue',
+      name: APP_CONSTANTS.QUEUE.MAIL_QUEUE,
       defaultJobOptions: {
         removeOnComplete: true,
-        removeOnFail: 1000, // Chỉ giữ lại 1000 lỗi gần nhất
+        removeOnFail: APP_CONSTANTS.BULLMQ.REMOVE_ON_FAIL_COUNT, // Chỉ giữ lại 1000 lỗi gần nhất
       },
     }),
   ],
