@@ -10,6 +10,7 @@ import { MailModule } from './modules/mail/mail.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CategoryModule } from './modules/category/category.module';
 import { TagsModule } from './modules/tags/tags.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { TagsModule } from './modules/tags/tags.module';
     MailModule,
     CategoryModule,
     TagsModule,
+    UploadModule,
   ],
   controllers: [],
   providers: [],

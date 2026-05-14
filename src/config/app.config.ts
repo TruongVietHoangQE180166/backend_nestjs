@@ -14,6 +14,15 @@ export function setupApp(app: INestApplication): void {
     credentials: true,
   });
 
+  // 2.5 Handle favicon.ico to avoid 404 logs
+  app.use((req, res, next) => {
+    if (req.url === '/favicon.ico') {
+      res.status(204).end();
+    } else {
+      next();
+    }
+  });
+
   // 3. Global Prefix
   app.setGlobalPrefix('api');
 
