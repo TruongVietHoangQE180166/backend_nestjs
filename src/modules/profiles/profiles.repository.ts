@@ -9,6 +9,7 @@ export class ProfilesRepository {
   async create(data: Prisma.ProfileUncheckedCreateInput) {
     return this.prisma.profile.create({
       data,
+      include: { avatar: true },
     });
   }
 
@@ -24,6 +25,7 @@ export class ProfilesRepository {
       take,
       where,
       orderBy,
+      include: { avatar: true },
     });
   }
 
@@ -34,6 +36,7 @@ export class ProfilesRepository {
   async findOne(where: Prisma.ProfileWhereUniqueInput) {
     return this.prisma.profile.findUnique({
       where,
+      include: { avatar: true },
     });
   }
 
@@ -45,12 +48,14 @@ export class ProfilesRepository {
     return this.prisma.profile.update({
       data,
       where,
+      include: { avatar: true },
     });
   }
 
   async delete(where: Prisma.ProfileWhereUniqueInput) {
     return this.prisma.profile.delete({
       where,
+      include: { avatar: true },
     });
   }
 }

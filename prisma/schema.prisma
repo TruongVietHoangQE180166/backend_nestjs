@@ -37,9 +37,15 @@ enum StoryApprovalStatus {
 }
 
 enum TagType {
-  CHARACTER // Phân loại theo tính cách nhân vật (v dụ: Lạnh lùng, Bá đạo)
-  WORLD     // Phân loại theo bối cảnh (v dụ: Tu tiên, Đô thị)
+  CHARACTER // Phân loại theo tính cách nhân vật (Ví dụ: Lạnh lùng, Bá đạo)
+  WORLD     // Phân loại theo bối cảnh (Ví dụ: Tu tiên, Đô thị)
   CONTENT   // Các nội dung/tình tiết đặc biệt khác
+}
+
+enum AuthorStatus {
+  PENDING  // Chờ Admin duyệt để hiển thị
+  APPROVED // Đã duyệt
+  REJECTED // Bị từ chối (có thể do vi phạm)
 }
 
 // ==========================================
@@ -79,6 +85,8 @@ model User {
   readingHistory    ReadingHistory[] @relation("UserReadingHistory")  // Lịch sử chương đã đọc
   candyDonations    CandyDonation[]  @relation("UserDonations")       // Nhật ký tặng kẹo
   nominations       NominationHistory[] @relation("UserNominations")  // Nhật ký đề cử truyện
+  createdAuthors    Author[]            @relation("UserCreatedAuthors") // Tác giả do người này tạo
+  uploadedMedia     Media[]             @relation("UserUploadedMedia")  // Media do người này tải lên
 
   createdAt         DateTime @default(now())  // Thời điểm đăng ký tài khoản
   updatedAt         DateTime @updatedAt       // Thời điểm cập nhật thông tin tài khoản
@@ -90,7 +98,9 @@ model Profile {
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   
   fullName  String?                            // Tên thật hoặc hiển thị
-  avatarUrl String?                            // Đường dẫn ảnh đại diện
+  avatarUrl String?                            // Đường dẫn ảnh đại diện (Legacy)
+  avatarId  String? @unique                    // ID ảnh đại diện từ bảng Media
+  avatar    Media?  @relation(fields: [avatarId], references: [id])
   bio       String? @db.Text                   // Giới thiệu bản thân ngắn gọn
 
   createdAt DateTime @default(now())           // Thời điểm tạo hồ sơ
@@ -128,13 +138,16 @@ model RegisterVerification {
 model Story {
   id              String              @id @default(uuid())
   title           String                                    // Tiêu đề truyện
-  slug            String              @unique               // Đường dẫn thân thiện (V dụ: toan-phong)
+  slug            String              @unique               // Đường dẫn thân thiện (Ví dụ: toan-phong)
   description     String              @db.Text              // Tóm tắt nội dung truyện
-  coverUrl        String?                                   // Ảnh bìa truyện
+  coverUrl        String?                                   // Ảnh bìa truyện (Legacy)
+  coverId         String?             @unique               // ID ảnh bìa từ bảng Media
+  cover           Media?              @relation(fields: [coverId], references: [id])
   type            StoryType                                 // Phân loại (Dịch/Convert/Sáng tác)
   status          StoryStatus         @default(ONGOING)     // Trạng thái (Đang ra/Hoàn thành)
   approvalStatus  StoryApprovalStatus @default(PENDING)     // Duyệt bởi Admin
-  authorName      String                                    // Tên tác giả (có thể khác tên uploader)
+  authorId        String                                    // ID tác giả
+  author          Author   @relation(fields: [authorId], references: [id]) // Tác giả
   
   uploaderId      String                                    // ID người đăng truyện
   uploader        User                @relation("UserUploadedStories", fields: [uploaderId], references: [id])
@@ -157,10 +170,11 @@ model Story {
   follows         StoryFollow[]        // Danh sách người theo dõi truyện này
   readingHistory  ReadingHistory[]     // Nhật ký đọc của các user
   candyDonations  CandyDonation[]     // Lịch sử kẹo được nhận
+  dailyViews      StoryDailyView[]     // Thống kê lượt xem theo ngày
   nominations     NominationHistory[]  // Lịch sử phiếu đề cử được nhận
 
   createdAt       DateTime @default(now()) // Thời điểm đăng truyện lên hệ thống
-  updatedAt       DateTime @updatedAt      // Thời điểm có cập nhật mới (V dụ: thêm chương)
+  updatedAt       DateTime @updatedAt      // Thời điểm có cập nhật mới (Ví dụ: thêm chương)
 
   @@index([status, approvalStatus])        // Index giúp lọc truyện đã duyệt nhanh hơn
 }
@@ -185,12 +199,30 @@ model Chapter {
 }
 
 // ==========================================
-// TAXONOMY (Phân loại: Thể loại & Nhãn)
+// TAXONOMY (Phân loại: Thể loại & Nhãn & Tác giả)
 // ==========================================
+
+model Author {
+  id          String   @id @default(uuid())
+  name        String   @unique                    // Tên tác giả (duy nhất)
+  slug        String   @unique                    // Đường dẫn thân thiện
+  description String?  @db.Text                   // Mô tả tác giả
+  avatarUrl   String?                             // Ảnh đại diện tác giả (Legacy)
+  avatarId    String?  @unique                    // ID ảnh đại diện từ bảng Media
+  avatar      Media?   @relation(fields: [avatarId], references: [id])
+  authorStatus AuthorStatus   @default(PENDING)     // Trạng thái duyệt tác giả
+  
+  creatorId   String                                // ID người tạo bản ghi tác giả
+  creator     User     @relation("UserCreatedAuthors", fields: [creatorId], references: [id])
+
+  stories     Story[]                             // Danh sách truyện của tác giả
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
 
 model Category {
   id          String  @id @default(uuid())
-  name        String  @unique                      // Tên thể loại (V dụ: Tiên Hiệp)
+  name        String  @unique                      // Tên thể loại (Ví dụ: Tiên Hiệp)
   description String?                              // Mô tả thể loại
   stories     Story[]                              // Các truyện thuộc thể loại này
 
@@ -200,7 +232,7 @@ model Category {
 
 model Tag {
   id        String   @id @default(uuid())
-  name      String                                 // Tên nhãn (V dụ: Hệ thống)
+  name      String                                 // Tên nhãn (Ví dụ: Hệ thống)
   type      TagType                                // Loại nhãn (Nhân vật/Bối cảnh)
   stories   Story[]                                // Các truyện có gắn nhãn này
 
@@ -305,4 +337,48 @@ model NominationHistory {
 
   @@index([storyId])
   @@index([userId])
+}
+
+// ==========================================
+// STATISTICS (Thống kê & Xếp hạng)
+// ==========================================
+
+model StoryDailyView {
+  id        String   @id @default(uuid())
+  storyId   String
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  
+  viewDate  DateTime // Ngày thống kê (nên lưu ở dạng 00:00:00 để dễ group)
+  viewCount Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storyId, viewDate])
+  @@index([viewDate])
+}
+
+// ==========================================
+// MEDIA & ASSETS (Quản lý hình ảnh & File)
+// ==========================================
+
+model Media {
+  id        String   @id @default(uuid())
+  url       String                                  // URL hiển thị ảnh
+  publicId  String   @unique                        // ID định danh trên Cloudinary để xóa/sửa
+  format    String?                                 // jpg, png, webp...
+  bytes     Int?                                    // Dung lượng file
+  width     Int?
+  height    Int?
+  
+  uploaderId String                                 // Người tải lên
+  uploader   User     @relation("UserUploadedMedia", fields: [uploaderId], references: [id])
+
+  // Liên kết ngược (Relations)
+  profile   Profile?
+  story     Story?
+  author    Author?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
